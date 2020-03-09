@@ -1,23 +1,68 @@
 from maya import cmds
+from PySide2 import QtWidgets, QtCore, QtGui
 
 
-numberOfBones = 10;
+class PlaceJointsUI(QtWidgets.QDialog):
 
-curveShape = cmds.ls(selection=True)
-curvePointPosStart = cmds.pointOnCurve(curveShape, pr = 0.0)
-curvePointPosEnd = cmds.pointOnCurve(curveShape, pr = 1.0)
+    def __init__(self):
+        super(PlaceJointsUI, self).__init__()
 
-boneDistance = (curvePointPosEnd[0] - curvePointPosStart[0])/numberOfBones
+        self.setWindowTitle("SplineJointPlacer 1.0")
+        self.button = QtWidgets.QPushButton("Place Joints")
+        self.buildUI()
 
-#     print boneDistance
+    def buildUI(self):
+        layout = QtWidgets.QVBoxLayout(self)
 
-initialJoint = cmds.joint(p =(curvePointPosStart[0], curvePointPosStart[1], curvePointPosStart[2]))
-cmds.select(initialJoint)
+        buttonWidget = QtWidgets.QWidget()
+        jointCreationLayout =  QtWidgets.QHBoxLayout(buttonWidget)
 
-for i in range (0, numberOfBones):
-    cmds.joint(p =(i*boneDistance, 0.0, 0.0))
+        layout.addWidget(buttonWidget)
+
+        self.boneNumInputField = QtWidgets.QLineEdit()
+        jointCreationLayout.addWidget(self.boneNumInputField)
+
+        button = QtWidgets.QPushButton("PlaceJoints")
+        button.clicked.connect(self.placeJoints)
+        jointCreationLayout.addWidget(button)
+
+    def placeJoints(self):
+
+        numberOfBones = int(self.boneNumInputField.text())
+
+        curveShape = cmds.ls(selection=True)
+
+        numberOfPoints = (cmds.getAttr(str(curveShape[0]) + '.degree') + cmds.getAttr(str(curveShape[0]) + '.spans'))
 
 
-print cmds.listRelatives(initialJoint)
+        initialPointPos = cmds.pointOnCurve(curveShape, parameter = 0.0)
+        initialJoint = cmds.joint(position = initialPointPos)
 
-cmds.move(boneDistance, 0.0, 0.0, cmds.listRelatives(initialJoint, c = True), a=True, ls = True)
+
+        for i in range(0, numberOfPoints):
+
+            curvePointPosStart = cmds.pointOnCurve(curveShape, parameter = i)
+            curvePointPosEnd = cmds.pointOnCurve(curveShape, parameter = i+1)
+
+            initialJoint = cmds.joint(position =curvePointPosStart)
+
+            boneDistanceX = (curvePointPosEnd[0] - curvePointPosStart[0])/numberOfBones
+            boneDistanceZ = (curvePointPosEnd[2] - curvePointPosStart[2])/numberOfBones
+
+
+            cmds.select(initialJoint)
+
+            print "point: " + str(i)
+
+            for i in range (0, numberOfBones):
+                print i*boneDistanceX
+                cmds.joint(p =(i*boneDistanceX, 0.0, i*boneDistanceZ))
+
+            cmds.move(boneDistanceX, 0.0, boneDistanceZ, cmds.listRelatives(initialJoint, children = True), absolute=True, localSpace = True)
+
+#This is the function that will actually display the UI
+def showUI():
+    ui = PlaceJointsUI()
+    ui.show()
+
+    return ui
